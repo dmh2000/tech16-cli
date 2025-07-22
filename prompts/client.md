@@ -31,3 +31,5 @@ We will be building an python library that implements clients that can make quer
 - the openai client will use the native opean ai python API library 'openai'
 
 help me create a better plan for the implementation of the client library. I will address the main cli program later. do not implement any code, just create a detailed plan for implementing the client library and save it in file prompts/client-plan.md
+
+now in directory tests/client, add test functions for the anthropic, gemini and openai clients. keep the test functions as simple as possible. use the pytest framework. organize the tests and files as you see fit.
