@@ -45,12 +45,19 @@ class OpenAIClient(Client):
             messages = self._format_messages(context)
             
             # Make the API call
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=messages,
-                max_tokens=4096,
-                temperature=0.7
-            )
+            # Use max_completion_tokens for newer models (o1, o4 series) and max_tokens for others
+            completion_params = {
+                "model": model,
+                "messages": messages
+            }
+            
+            # Newer models use max_completion_tokens, older models use max_tokens
+            if model.startswith(('o1-', 'o3-', 'o4-')):
+                completion_params["max_completion_tokens"] = 4096
+            else:
+                completion_params["max_tokens"] = 4096
+            
+            response = self.client.chat.completions.create(**completion_params)
             
             # Extract and clean the response text
             response_text = response.choices[0].message.content

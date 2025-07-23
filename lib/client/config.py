@@ -8,15 +8,13 @@ from .exceptions import APIKeyMissingError, ModelNotFoundError
 # Supported models for each provider
 SUPPORTED_MODELS = {
     "anthropic": {
-        "claude-sonnet-4",
-        "claude-3-5-haiku",
-        # "claude-sonnet-4-20250514",
-        # "claude-3-5-haiku-20241022",
+        "claude-sonnet-4-20250514",
+        "claude-3-5-haiku-20241022",
     },
     "openai": {
         "o4-mini",
         "o3-mini",
-        "GPT-4o",
+        "gpt-4o-mini",
     },
     "gemini": {
         "gemini-2.5-pro",
@@ -115,11 +113,11 @@ def get_provider_for_model(model: str) -> str:
     for provider, models in SUPPORTED_MODELS.items():
         if model in models:
             return provider
-    
+
     all_models = []
     for models in SUPPORTED_MODELS.values():
         all_models.extend(sorted(models))
-    
+
     raise ModelNotFoundError(
         f"Model '{model}' not found in any provider. "
         f"Available models: {', '.join(all_models)}"
