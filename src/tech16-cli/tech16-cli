@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""tech16-cli - Command line tool for querying LLMs with different modes and context."""
+
+import argparse
+import sys
+import os
+import urllib.parse
+from typing import List, Optional
+from pathlib import Path
+
+import requests
+from bs4 import BeautifulSoup
+
+# Add the lib directory to the Python path to import our client library
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
+
+from client.config import get_provider_for_model, SUPPORTED_MODELS
+from client.exceptions import ModelNotFoundError, APIKeyMissingError
+from client.anthropic_client import AnthropicClient
+from client.openai_client import OpenAIClient
+from client.gemini_client import GeminiClient
+
+
+def error_exit(message: str, exit_code: int = 1) -> None:
+    """Print error message to stderr and exit with specified code."""
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(exit_code)
+
+
+def print_usage_and_exit() -> None:
+    """Print comprehensive usage message with providers/models and exit."""
+    print("""tech16-cli - Query LLMs with custom prompts and context
+
+USAGE:
+  tech16-cli [OPTIONS] [FILES_AND_URLS...]
+
+OPTIONS:
+  --prompt FILENAME    File containing the prompt to use
+  --model MODEL_NAME   Model to use (default: o4-mini)
+  --help               Show this help message
+
+EXAMPLES:
+  tech16-cli file.txt
+  tech16-cli --model claude-sonnet-4 file.txt
+  tech16-cli --prompt system.txt --model o4-mini https://example.com/docs
+  echo "analyze this" | tech16-cli --prompt review.txt
+  tech16-cli --prompt plan.txt file1.py file2.py https://docs.example.com
+
+SUPPORTED PROVIDERS AND MODELS:""")
+    
+    for provider, models in sorted(SUPPORTED_MODELS.items()):
+        print(f"\n  {provider.upper()}:")
+        for model in sorted(models):
+            default_marker = " (default)" if model == "o4-mini" else ""
+            print(f"    - {model}{default_marker}")
+    
+    print(f"\nTotal models available: {sum(len(models) for models in SUPPORTED_MODELS.values())}")
+    print("\nNOTE: Requires appropriate API keys set as environment variables:")
+    print("  - ANTHROPIC_API_KEY for Anthropic models")
+    print("  - OPENAI_API_KEY for OpenAI models") 
+    print("  - GOOGLE_API_KEY for Gemini models")
+    
+    sys.exit(0)
+
+
+def read_stdin() -> Optional[str]:
+    """Read input from stdin if available."""
+    if not sys.stdin.isatty():
+        try:
+            content = sys.stdin.read().strip()
+            return content if content else None
+        except Exception as e:
+            error_exit(f"Failed to read from stdin: {e}")
+    return None
+
+
+def read_file(filepath: str) -> str:
+    """Read content from a file."""
+    try:
+        path = Path(filepath)
+        if not path.exists():
+            error_exit(f"File not found: {filepath}")
+        
+        if not path.is_file():
+            error_exit(f"Path is not a file: {filepath}")
+            
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            return f.read()
+    except Exception as e:
+        error_exit(f"Failed to read file '{filepath}': {e}")
+
+
+def is_url(string: str) -> bool:
+    """Check if a string is a valid URL."""
+    try:
+        result = urllib.parse.urlparse(string)
+        return bool(result.scheme and result.netloc)
+    except Exception:
+        return False
+
+
+def scrape_url(url: str, depth: int = 2) -> str:
+    """Scrape content from URL to specified depth."""
+    visited_urls = set()
+    scraped_content = []
+    
+    def scrape_single_url(target_url: str, current_depth: int) -> None:
+        if current_depth < 0 or target_url in visited_urls:
+            return
+            
+        visited_urls.add(target_url)
+        
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (compatible; tech16-cli/1.0)'
+            }
+            response = requests.get(target_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            
+            soup = BeautifulSoup(response.content, 'html.parser')
+            
+            # Remove script and style elements
+            for script in soup(["script", "style"]):
+                script.decompose()
+            
+            # Get text content
+            text = soup.get_text()
+            # Clean up whitespace
+            lines = (line.strip() for line in text.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+            
+            if text:
+                scraped_content.append(f"Content from {target_url}:\n{text}\n")
+            
+            # If we have more depth to go, find links
+            if current_depth > 0:
+                links = soup.find_all('a', href=True)
+                for link in links[:10]:  # Limit to first 10 links per page
+                    href = link['href']
+                    # Convert relative URLs to absolute
+                    absolute_url = urllib.parse.urljoin(target_url, href)
+                    if is_url(absolute_url) and absolute_url not in visited_urls:
+                        scrape_single_url(absolute_url, current_depth - 1)
+                        
+        except requests.exceptions.RequestException as e:
+            scraped_content.append(f"Failed to fetch {target_url}: {e}\n")
+        except Exception as e:
+            scraped_content.append(f"Error processing {target_url}: {e}\n")
+    
+    scrape_single_url(url, depth - 1)
+    return '\n'.join(scraped_content)
+
+
+def build_context(stdin_content: Optional[str], files_and_urls: List[str], prompt: str = "") -> List[str]:
+    """Build the context array from stdin, files, URLs, and prompt."""
+    context = []
+    
+    # Add stdin content first if available
+    if stdin_content:
+        context.append(f"Input from stdin:\n{stdin_content}")
+    
+    # Process files and URLs
+    for item in files_and_urls:
+        if is_url(item):
+            print(f"Scraping URL: {item}", file=sys.stderr)
+            url_content = scrape_url(item)
+            context.append(url_content)
+        else:
+            file_content = read_file(item)
+            context.append(f"Content from file {item}:\n{file_content}")
+    
+    # Add prompt as the last entry if provided
+    if prompt:
+        context.append(prompt)
+    
+    return context
+
+
+def create_client(model: str):
+    """Create appropriate client instance for the given model."""
+    try:
+        provider = get_provider_for_model(model)
+    except ModelNotFoundError as e:
+        error_exit(str(e))
+    
+    try:
+        if provider == "anthropic":
+            return AnthropicClient()
+        elif provider == "openai":
+            return OpenAIClient()
+        elif provider == "gemini":
+            return GeminiClient()
+        else:
+            error_exit(f"Unknown provider: {provider}")
+    except APIKeyMissingError as e:
+        error_exit(str(e))
+    except Exception as e:
+        error_exit(f"Failed to create client for provider '{provider}': {e}")
+
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="tech16-cli - Query LLMs with custom prompts and context",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  tech16-cli --model claude-sonnet-4 file.txt
+  tech16-cli --prompt system.txt --model o4-mini https://example.com/docs
+  echo "analyze this" | tech16-cli --prompt review.txt
+  tech16-cli --prompt plan.txt file1.py file2.py https://docs.example.com
+        """
+    )
+    
+    # Prompt file specification
+    parser.add_argument('--prompt', 
+                       help='File containing the prompt to use')
+    
+    # Model specification
+    parser.add_argument('--model', default='o4-mini',
+                       help='Model to use (default: o4-mini)')
+    
+    # Files and URLs
+    parser.add_argument('files_and_urls', nargs='*',
+                       help='Files and URLs to include as context')
+    
+    return parser.parse_args()
+
+
+def main():
+    """Main entry point for the CLI tool."""
+    try:
+        # Parse command line arguments
+        args = parse_arguments()
+        
+        # Read stdin if available
+        stdin_content = read_stdin()
+        
+        # Read prompt file if specified
+        prompt = ""
+        if args.prompt:
+            prompt = read_file(args.prompt)
+        
+        # Check if we have no input at all - show help if so
+        has_stdin = stdin_content is not None and stdin_content.strip()
+        has_prompt = args.prompt is not None
+        has_files_urls = len(args.files_and_urls) > 0
+        
+        if not has_stdin and not has_prompt and not has_files_urls:
+            print_usage_and_exit()
+        
+        # Build context array
+        context = build_context(stdin_content, args.files_and_urls, prompt)
+        
+        # Create appropriate client
+        client = create_client(args.model)
+        
+        # Execute query
+        print(f"Querying {args.model}...", file=sys.stderr)
+        try:
+            response = client.query(args.model, context)
+            print(response)
+        except Exception as e:
+            error_exit(f"Query failed: {e}")
+            
+    except KeyboardInterrupt:
+        error_exit("Operation cancelled by user", 130)
+    except Exception as e:
+        error_exit(f"Unexpected error: {e}")
+
+
+if __name__ == "__main__":
+    main()

@@ -11,5 +11,5 @@ what is the preferred layout for a python project that has a main application an
 │   └── plan.md
 ├── sqirvy-mcp.log
 └── src
-└── agent-cli
+└── tech16-cli
 └── **init**.py
