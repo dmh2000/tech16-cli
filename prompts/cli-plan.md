@@ -68,11 +68,11 @@ Building a Python CLI tool that queries LLMs with custom prompts and context fro
 #### Step 8: URL Scraping Module
 - Implement URL validation and fetching using `requests`
 - Add BeautifulSoup integration for HTML parsing
-- Implement depth-2 scraping:
-  - Parse initial URL
-  - Extract links from the page
-  - Follow links one level deep
-  - Aggregate all content into single string
+- **Basic mode implementation** (single URL only):
+  - Parse provided URL only
+  - Extract clean text content from the page
+  - Remove script and style elements
+  - Clean up whitespace and formatting
 - Add error handling for:
   - Network timeouts
   - Invalid URLs
@@ -165,9 +165,9 @@ Building a Python CLI tool that queries LLMs with custom prompts and context fro
 - Existing exception classes in `lib/client/exceptions.py`
 
 ### Potential Challenges
-- **URL Scraping Complexity**: Depth-2 scraping may be slow/complex - consider implementing basic version first
+- **URL Scraping Complexity**: ~~Depth-2 scraping may be slow/complex~~ - **RESOLVED**: Implemented basic single-URL scraping mode
 - **Context Size Limits**: Large files + URLs + stdin may exceed model context limits
-- **Rate Limiting**: Multiple URL requests may hit rate limits
+- **Rate Limiting**: ~~Multiple URL requests may hit rate limits~~ - **MITIGATED**: Single URL per input reduces rate limiting issues
 - **Encoding Issues**: File/URL content encoding may cause problems
 
 ### Success Criteria

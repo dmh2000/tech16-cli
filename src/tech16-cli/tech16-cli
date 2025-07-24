@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
-"""tech16-cli - Command line tool for querying LLMs with different modes and context."""
+"""tech16-cli - Command line tool for querying LLMs with custom prompts and context."""
 
 import argparse
 import sys
 import os
-import urllib.parse
 from typing import List, Optional
-from pathlib import Path
-
-import requests
-from bs4 import BeautifulSoup
 
 # Add the lib directory to the Python path to import our client library
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', 'lib'))
@@ -19,6 +14,10 @@ from client.exceptions import ModelNotFoundError, APIKeyMissingError
 from client.anthropic_client import AnthropicClient
 from client.openai_client import OpenAIClient
 from client.gemini_client import GeminiClient
+
+# Import our new handler modules
+from file_handler import read_file_content, validate_file_paths
+from url_handler import scrape_url_content, validate_urls, is_valid_url
 
 
 def error_exit(message: str, exit_code: int = 1) -> None:
@@ -74,82 +73,6 @@ def read_stdin() -> Optional[str]:
     return None
 
 
-def read_file(filepath: str) -> str:
-    """Read content from a file."""
-    try:
-        path = Path(filepath)
-        if not path.exists():
-            error_exit(f"File not found: {filepath}")
-        
-        if not path.is_file():
-            error_exit(f"Path is not a file: {filepath}")
-            
-        with open(path, 'r', encoding='utf-8', errors='replace') as f:
-            return f.read()
-    except Exception as e:
-        error_exit(f"Failed to read file '{filepath}': {e}")
-
-
-def is_url(string: str) -> bool:
-    """Check if a string is a valid URL."""
-    try:
-        result = urllib.parse.urlparse(string)
-        return bool(result.scheme and result.netloc)
-    except Exception:
-        return False
-
-
-def scrape_url(url: str, depth: int = 2) -> str:
-    """Scrape content from URL to specified depth."""
-    visited_urls = set()
-    scraped_content = []
-    
-    def scrape_single_url(target_url: str, current_depth: int) -> None:
-        if current_depth < 0 or target_url in visited_urls:
-            return
-            
-        visited_urls.add(target_url)
-        
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (compatible; tech16-cli/1.0)'
-            }
-            response = requests.get(target_url, headers=headers, timeout=10)
-            response.raise_for_status()
-            
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Remove script and style elements
-            for script in soup(["script", "style"]):
-                script.decompose()
-            
-            # Get text content
-            text = soup.get_text()
-            # Clean up whitespace
-            lines = (line.strip() for line in text.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = ' '.join(chunk for chunk in chunks if chunk)
-            
-            if text:
-                scraped_content.append(f"Content from {target_url}:\n{text}\n")
-            
-            # If we have more depth to go, find links
-            if current_depth > 0:
-                links = soup.find_all('a', href=True)
-                for link in links[:10]:  # Limit to first 10 links per page
-                    href = link['href']
-                    # Convert relative URLs to absolute
-                    absolute_url = urllib.parse.urljoin(target_url, href)
-                    if is_url(absolute_url) and absolute_url not in visited_urls:
-                        scrape_single_url(absolute_url, current_depth - 1)
-                        
-        except requests.exceptions.RequestException as e:
-            scraped_content.append(f"Failed to fetch {target_url}: {e}\n")
-        except Exception as e:
-            scraped_content.append(f"Error processing {target_url}: {e}\n")
-    
-    scrape_single_url(url, depth - 1)
-    return '\n'.join(scraped_content)
 
 
 def build_context(stdin_content: Optional[str], files_and_urls: List[str], prompt: str = "") -> List[str]:
@@ -160,15 +83,16 @@ def build_context(stdin_content: Optional[str], files_and_urls: List[str], promp
     if stdin_content:
         context.append(f"Input from stdin:\n{stdin_content}")
     
-    # Process files and URLs
+    # Process files and URLs with improved error handling
     for item in files_and_urls:
-        if is_url(item):
+        if is_valid_url(item):
             print(f"Scraping URL: {item}", file=sys.stderr)
-            url_content = scrape_url(item)
+            url_content = scrape_url_content(item)
             context.append(url_content)
         else:
-            file_content = read_file(item)
-            context.append(f"Content from file {item}:\n{file_content}")
+            # Handle as file
+            file_content = read_file_content(item)
+            context.append(file_content)
     
     # Add prompt as the last entry if provided
     if prompt:
@@ -234,13 +158,36 @@ def main():
         # Parse command line arguments
         args = parse_arguments()
         
+        # Validate file and URL inputs early
+        if args.files_and_urls:
+            files = [item for item in args.files_and_urls if not is_valid_url(item)]
+            urls = [item for item in args.files_and_urls if is_valid_url(item)]
+            
+            # Validate files
+            file_errors = validate_file_paths(files)
+            if file_errors:
+                for error in file_errors:
+                    print(f"Error: {error}", file=sys.stderr)
+                error_exit("File validation failed")
+            
+            # Validate URLs
+            url_errors = validate_urls(urls)
+            if url_errors:
+                for error in url_errors:
+                    print(f"Error: {error}", file=sys.stderr)
+                error_exit("URL validation failed")
+        
         # Read stdin if available
         stdin_content = read_stdin()
         
         # Read prompt file if specified
         prompt = ""
         if args.prompt:
-            prompt = read_file(args.prompt)
+            prompt_content = read_file_content(args.prompt)
+            # Check if it's an error message
+            if prompt_content.startswith("Error:"):
+                error_exit(prompt_content[7:])  # Remove "Error: " prefix
+            prompt = prompt_content
         
         # Check if we have no input at all - show help if so
         has_stdin = stdin_content is not None and stdin_content.strip()
