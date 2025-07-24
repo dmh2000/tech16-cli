@@ -12,7 +12,7 @@ from lib.client.exceptions import APIKeyMissingError, APICallError
 class TestFactoryFunctions:
     """Test cases for factory functions."""
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_new_anthropic_success(self, mock_anthropic_class, mock_env_vars):
         """Test successful Anthropic client creation."""
         client = new_anthropic()
@@ -22,10 +22,11 @@ class TestFactoryFunctions:
 
     def test_new_anthropic_missing_api_key(self):
         """Test Anthropic client creation with missing API key."""
-        with pytest.raises(APIKeyMissingError):
-            new_anthropic()
+        with patch.dict('os.environ', {}, clear=True):
+            with pytest.raises(APIKeyMissingError):
+                new_anthropic()
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_new_openai_success(self, mock_openai_class, mock_env_vars):
         """Test successful OpenAI client creation."""
         client = new_openai()
@@ -35,10 +36,11 @@ class TestFactoryFunctions:
 
     def test_new_openai_missing_api_key(self):
         """Test OpenAI client creation with missing API key."""
-        with pytest.raises(APIKeyMissingError):
-            new_openai()
+        with patch.dict('os.environ', {}, clear=True):
+            with pytest.raises(APIKeyMissingError):
+                new_openai()
 
-    @patch('lib.client.gemini_client.genai')
+    @patch('google.generativeai', create=True)
     def test_new_gemini_success(self, mock_genai, mock_env_vars):
         """Test successful Gemini client creation."""
         client = new_gemini()
@@ -48,24 +50,25 @@ class TestFactoryFunctions:
 
     def test_new_gemini_missing_api_key(self):
         """Test Gemini client creation with missing API key."""
-        with pytest.raises(APIKeyMissingError):
-            new_gemini()
+        with patch.dict('os.environ', {}, clear=True):
+            with pytest.raises(APIKeyMissingError):
+                new_gemini()
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_new_anthropic_missing_library(self, mock_anthropic_class, mock_env_vars):
         """Test Anthropic client creation with missing library."""
         with patch.dict('sys.modules', {'anthropic': None}):
             with pytest.raises(APICallError, match="Anthropic library not installed"):
                 new_anthropic()
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_new_openai_missing_library(self, mock_openai_class, mock_env_vars):
         """Test OpenAI client creation with missing library."""
         with patch.dict('sys.modules', {'openai': None}):
             with pytest.raises(APICallError, match="OpenAI library not installed"):
                 new_openai()
 
-    @patch('lib.client.gemini_client.genai')
+    @patch('google.generativeai', create=True)
     def test_new_gemini_missing_library(self, mock_genai, mock_env_vars):
         """Test Gemini client creation with missing library."""
         with patch.dict('sys.modules', {'google.generativeai': None}):

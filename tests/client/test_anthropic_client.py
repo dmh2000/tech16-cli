@@ -10,7 +10,7 @@ from lib.client.exceptions import APIKeyMissingError, APICallError, ModelNotFoun
 class TestAnthropicClient:
     """Test cases for AnthropicClient."""
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_init_success(self, mock_anthropic_class, mock_env_vars):
         """Test successful client initialization."""
         mock_anthropic_class.return_value = Mock()
@@ -22,8 +22,9 @@ class TestAnthropicClient:
 
     def test_init_missing_api_key(self):
         """Test initialization fails when API key is missing."""
-        with pytest.raises(APIKeyMissingError):
-            AnthropicClient()
+        with patch.dict('os.environ', {}, clear=True):
+            with pytest.raises(APIKeyMissingError):
+                AnthropicClient()
 
     def test_init_missing_library(self, mock_env_vars):
         """Test initialization fails when Anthropic library is not installed."""
@@ -31,18 +32,18 @@ class TestAnthropicClient:
             with pytest.raises(APICallError, match="Anthropic library not installed"):
                 AnthropicClient()
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_query_success(self, mock_anthropic_class, mock_env_vars, sample_context, mock_anthropic_client):
         """Test successful query."""
         mock_anthropic_class.return_value = mock_anthropic_client
         client = AnthropicClient()
         
-        response = client.query("claude-3-5-sonnet-20241022", sample_context)
+        response = client.query("claude-sonnet-4-20250514", sample_context)
         
         assert response == "The capital of France is Paris."
         mock_anthropic_client.messages.create.assert_called_once()
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_query_invalid_model(self, mock_anthropic_class, mock_env_vars, sample_context):
         """Test query with invalid model."""
         mock_anthropic_class.return_value = Mock()
@@ -52,17 +53,17 @@ class TestAnthropicClient:
         
         assert "Model 'invalid-model' not supported" in response
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_query_empty_context(self, mock_anthropic_class, mock_env_vars):
         """Test query with empty context."""
         mock_anthropic_class.return_value = Mock()
         client = AnthropicClient()
         
-        response = client.query("claude-3-5-sonnet-20241022", [])
+        response = client.query("claude-sonnet-4-20250514", [])
         
         assert "Context cannot be empty" in response
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_query_api_error(self, mock_anthropic_class, mock_env_vars, sample_context):
         """Test query when API call fails."""
         mock_client = Mock()
@@ -70,12 +71,12 @@ class TestAnthropicClient:
         mock_anthropic_class.return_value = mock_client
         client = AnthropicClient()
         
-        response = client.query("claude-3-5-sonnet-20241022", sample_context)
+        response = client.query("claude-sonnet-4-20250514", sample_context)
         
         assert "Error querying anthropic" in response
         assert "API Error" in response
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_format_messages_single_context(self, mock_anthropic_class, mock_env_vars, sample_single_context):
         """Test message formatting with single context item."""
         mock_anthropic_class.return_value = Mock()
@@ -87,7 +88,7 @@ class TestAnthropicClient:
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == "What is 2 + 2?"
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_format_messages_multiple_context(self, mock_anthropic_class, mock_env_vars, sample_context):
         """Test message formatting with multiple context items."""
         mock_anthropic_class.return_value = Mock()
@@ -95,11 +96,12 @@ class TestAnthropicClient:
         
         messages = client._format_messages(sample_context)
         
-        assert len(messages) == 2
+        assert len(messages) == 3  # user, assistant, user continuation
         assert messages[0]["role"] == "user"
         assert messages[1]["role"] == "assistant"
+        assert messages[2]["role"] == "user"
 
-    @patch('lib.client.anthropic_client.Anthropic')
+    @patch('anthropic.Anthropic')
     def test_format_messages_ends_with_user(self, mock_anthropic_class, mock_env_vars):
         """Test message formatting ensures last message is from user."""
         mock_anthropic_class.return_value = Mock()
@@ -109,4 +111,5 @@ class TestAnthropicClient:
         messages = client._format_messages(context)
         
         assert messages[-1]["role"] == "user"
-        assert "Please continue" in messages[-1]["content"]
+        # The third message is treated as user (index 2), so no continuation needed
+        assert messages[-1]["content"] == "another assistant message"

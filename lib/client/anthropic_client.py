@@ -1,7 +1,7 @@
 """Anthropic Claude client implementation."""
 
 from typing import List
-import client
+from .client import Client
 from .config import get_api_key, validate_model
 from .utils import (
     validate_context,
@@ -12,7 +12,7 @@ from .utils import (
 from .exceptions import APICallError
 
 
-class AnthropicClient(client.Client):
+class AnthropicClient(Client):
     """Client implementation for Anthropic Claude models."""
 
     def __init__(self):

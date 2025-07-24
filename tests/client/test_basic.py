@@ -37,9 +37,9 @@ class TestBasicFunctionality:
     def test_model_validation(self):
         """Test model validation."""
         # Valid models should pass
-        assert validate_model("anthropic", "claude-3-5-sonnet-20241022") == True
-        assert validate_model("openai", "gpt-4o") == True
-        assert validate_model("gemini", "gemini-1.5-pro") == True
+        assert validate_model("anthropic", "claude-sonnet-4-20250514") == True
+        assert validate_model("openai", "gpt-4o-mini") == True
+        assert validate_model("gemini", "gemini-2.5-pro") == True
         
         # Invalid models should raise exception
         with pytest.raises(ModelNotFoundError):

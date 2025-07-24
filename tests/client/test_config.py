@@ -27,14 +27,15 @@ class TestConfig:
 
     def test_get_api_key_missing(self):
         """Test API key retrieval when environment variable is not set."""
-        with pytest.raises(APIKeyMissingError, match="Please set ANTHROPIC_API_KEY"):
-            get_api_key("anthropic")
+        with patch.dict('os.environ', {}, clear=True):
+            with pytest.raises(APIKeyMissingError, match="Please set ANTHROPIC_API_KEY"):
+                get_api_key("anthropic")
 
     def test_validate_model_success(self):
         """Test successful model validation."""
-        assert validate_model("anthropic", "claude-3-5-sonnet-20241022") == True
-        assert validate_model("openai", "gpt-4o") == True
-        assert validate_model("gemini", "gemini-1.5-pro") == True
+        assert validate_model("anthropic", "claude-sonnet-4-20250514") == True
+        assert validate_model("openai", "gpt-4o-mini") == True
+        assert validate_model("gemini", "gemini-2.5-pro") == True
 
     def test_validate_model_unknown_provider(self):
         """Test model validation with unknown provider."""
@@ -60,9 +61,9 @@ class TestConfig:
         assert len(openai_models) > 0
         assert len(gemini_models) > 0
         
-        assert "claude-3-5-sonnet-20241022" in anthropic_models
-        assert "gpt-4o" in openai_models
-        assert "gemini-1.5-pro" in gemini_models
+        assert "claude-sonnet-4-20250514" in anthropic_models
+        assert "gpt-4o-mini" in openai_models
+        assert "gemini-2.5-pro" in gemini_models
 
     def test_get_supported_models_unknown_provider(self):
         """Test getting supported models for unknown provider."""

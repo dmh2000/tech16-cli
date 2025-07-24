@@ -9,7 +9,7 @@ from lib.client.exceptions import APIKeyMissingError, APICallError, ModelNotFoun
 class TestOpenAIClient:
     """Test cases for OpenAIClient."""
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_init_success(self, mock_openai_class, mock_env_vars):
         """Test successful client initialization."""
         mock_openai_class.return_value = Mock()
@@ -21,28 +21,29 @@ class TestOpenAIClient:
 
     def test_init_missing_api_key(self):
         """Test initialization fails when API key is missing."""
-        with pytest.raises(APIKeyMissingError):
-            OpenAIClient()
+        with patch.dict('os.environ', {}, clear=True):
+            with pytest.raises(APIKeyMissingError):
+                OpenAIClient()
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_init_missing_library(self, mock_openai_class, mock_env_vars):
         """Test initialization fails when OpenAI library is not installed."""
         with patch.dict('sys.modules', {'openai': None}):
             with pytest.raises(APICallError, match="OpenAI library not installed"):
                 OpenAIClient()
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_query_success(self, mock_openai_class, mock_env_vars, sample_context, mock_openai_client):
         """Test successful query."""
         mock_openai_class.return_value = mock_openai_client
         client = OpenAIClient()
         
-        response = client.query("gpt-4o", sample_context)
+        response = client.query("gpt-4o-mini", sample_context)
         
         assert response == "The capital of France is Paris."
         mock_openai_client.chat.completions.create.assert_called_once()
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_query_invalid_model(self, mock_openai_class, mock_env_vars, sample_context):
         """Test query with invalid model."""
         mock_openai_class.return_value = Mock()
@@ -52,17 +53,17 @@ class TestOpenAIClient:
         
         assert "Model 'invalid-model' not supported" in response
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_query_empty_context(self, mock_openai_class, mock_env_vars):
         """Test query with empty context."""
         mock_openai_class.return_value = Mock()
         client = OpenAIClient()
         
-        response = client.query("gpt-4o", [])
+        response = client.query("gpt-4o-mini", [])
         
         assert "Context cannot be empty" in response
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_query_api_error(self, mock_openai_class, mock_env_vars, sample_context):
         """Test query when API call fails."""
         mock_client = Mock()
@@ -70,12 +71,12 @@ class TestOpenAIClient:
         mock_openai_class.return_value = mock_client
         client = OpenAIClient()
         
-        response = client.query("gpt-4o", sample_context)
+        response = client.query("gpt-4o-mini", sample_context)
         
         assert "Error querying openai" in response
         assert "API Error" in response
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_format_messages_single_context(self, mock_openai_class, mock_env_vars, sample_single_context):
         """Test message formatting with single context item."""
         mock_openai_class.return_value = Mock()
@@ -87,7 +88,7 @@ class TestOpenAIClient:
         assert messages[0]["role"] == "user"
         assert messages[0]["content"] == "What is 2 + 2?"
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_format_messages_system_message(self, mock_openai_class, mock_env_vars):
         """Test message formatting with system-like first message."""
         mock_openai_class.return_value = Mock()
@@ -96,11 +97,12 @@ class TestOpenAIClient:
         
         messages = client._format_messages(context)
         
-        assert len(messages) == 2
+        assert len(messages) == 3  # system, assistant, user continuation
         assert messages[0]["role"] == "system"
-        assert messages[1]["role"] == "user"
+        assert messages[1]["role"] == "assistant"
+        assert messages[2]["role"] == "user"
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_format_messages_multiple_context(self, mock_openai_class, mock_env_vars):
         """Test message formatting with multiple context items."""
         mock_openai_class.return_value = Mock()
@@ -114,7 +116,7 @@ class TestOpenAIClient:
         assert messages[1]["role"] == "assistant"
         assert messages[2]["role"] == "user"
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_looks_like_system_message(self, mock_openai_class, mock_env_vars):
         """Test system message detection."""
         mock_openai_class.return_value = Mock()
@@ -126,7 +128,7 @@ class TestOpenAIClient:
         assert not client._looks_like_system_message("What is the weather?")
         assert not client._looks_like_system_message("Hello there!")
 
-    @patch('lib.client.openai_client.OpenAI')
+    @patch('openai.OpenAI')
     def test_format_messages_ends_with_user(self, mock_openai_class, mock_env_vars):
         """Test message formatting ensures last message is from user."""
         mock_openai_class.return_value = Mock()
