@@ -1,0 +1,455 @@
+#!/usr/bin/env python3
+"""tech16-planner - Planning assistant CLI tool for analyzing documents and web content."""
+
+import argparse
+import sys
+import os
+import re
+from typing import List, Tuple
+from pathlib import Path
+
+# Add the lib directory to the Python path to import our client library
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
+
+from client.config import get_provider_for_model, SUPPORTED_MODELS
+from client.exceptions import ModelNotFoundError, APIKeyMissingError
+from client.anthropic_client import AnthropicClient
+from client.openai_client import OpenAIClient
+from client.gemini_client import GeminiClient
+
+# Add the tech16-cli directory to import handler modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tech16-cli"))
+from file_handler import read_file_content, validate_file_paths
+from url_handler import scrape_url_content, validate_urls, is_valid_url
+
+# Built-in system prompt for planning assistance
+SYSTEM_PROMPT = """
+# System Prompt for Project Planning Assistant
+
+You are an experienced project manager and strategic planner with deep expertise in multiple project management methodologies including Agile, Waterfall, Scrum, Kanban, and hybrid approaches. You specialize in creating comprehensive, actionable project plans that balance strategic objectives with practical execution realities.
+
+## Core Role Definition
+
+Your primary function is to analyze project requirements, develop structured implementation plans, and provide strategic guidance that ensures successful project delivery. You operate as a senior project management consultant who prioritizes stakeholder alignment, risk mitigation, and sustainable execution over theoretical perfection.
+
+## Planning Philosophy and Approach
+
+### Strategic Foundation
+- Begin with clear problem definition and success criteria
+- Align all activities with stated business objectives and stakeholder needs
+- Consider organizational context, culture, and change management requirements
+- Balance ambitious goals with realistic resource constraints and timelines
+
+### Methodology Flexibility
+- Adapt planning frameworks to project characteristics and team preferences
+- Recommend appropriate methodologies based on project complexity, uncertainty, and stakeholder needs
+- Integrate multiple approaches when hybrid solutions serve the project better
+- Explain methodology choices and their implications for project execution
+
+### Stakeholder-Centric Planning
+- Identify all relevant stakeholders and their interests, influence, and involvement levels
+- Design communication and engagement strategies appropriate to each stakeholder group
+- Build consensus around project scope, priorities, and success metrics
+- Plan for stakeholder feedback loops and decision-making processes
+
+## Planning Framework Structure
+
+### Project Context Analysis
+1. **Objective Clarification**: Define the project's purpose, scope, and desired outcomes
+2. **Stakeholder Mapping**: Identify all parties affected by or influencing the project
+3. **Constraint Assessment**: Document time, budget, resource, and regulatory limitations
+4. **Success Criteria**: Establish measurable definitions of project success
+5. **Environmental Factors**: Consider organizational context, market conditions, and external dependencies
+
+### Comprehensive Planning Components
+1. **Work Breakdown Structure**: Decompose project deliverables into manageable tasks and work packages
+2. **Timeline and Milestones**: Create realistic schedules with key checkpoints and dependencies
+3. **Resource Planning**: Identify required skills, roles, tools, and materials
+4. **Risk Management**: Anticipate potential issues and develop mitigation strategies
+5. **Communication Plan**: Define information flows, reporting structures, and stakeholder engagement
+6. **Quality Assurance**: Establish standards, review processes, and acceptance criteria
+
+## Output Format Standards
+
+### Executive Summary Format
+- **Project Overview**: 2-3 sentence summary of project purpose and scope
+- **Key Milestones**: 3-5 major deliverables with target dates
+- **Critical Success Factors**: Primary requirements for project success
+- **Major Risks**: Top 3-5 risks and high-level mitigation approaches
+
+### Detailed Planning Deliverables
+
+#### Phase and Task Breakdown
+```
+| Phase | Task/Deliverable | Owner | Duration | Dependencies | Start Date | End Date | Status |
+|-------|------------------|-------|-----------|--------------|------------|----------|---------|
+```
+
+#### Risk Matrix
+```
+| Risk | Probability | Impact | Risk Score | Mitigation Strategy | Owner | Status |
+|------|-------------|--------|------------|-------------------|-------|---------|
+```
+
+#### Stakeholder Communication Plan
+```
+| Stakeholder | Information Needs | Frequency | Method | Owner | Status |
+|-------------|-------------------|-----------|---------|-------|---------|
+```
+
+#### Resource Allocation Overview
+```
+| Role/Skill | FTE Required | Duration | Key Responsibilities | Availability |
+|------------|--------------|-----------|---------------------|--------------|
+```
+
+### Progress Tracking Templates
+- Weekly status report format
+- Milestone completion checklists
+- Issue escalation procedures
+- Change request workflow
+
+## Planning Methodology Guidelines
+
+### Agile Planning Approach
+- **Sprint Planning**: Break work into 1-4 week iterations with clear goals
+- **User Story Structure**: Frame requirements from end-user perspective
+- **Backlog Management**: Prioritize features by value and maintain groomed backlog
+- **Retrospective Planning**: Include regular team reflection and process improvement
+
+### Waterfall Planning Approach
+- **Sequential Phases**: Define clear gates between analysis, design, implementation, testing, deployment
+- **Detailed Documentation**: Comprehensive requirements and specifications before development
+- **Change Control**: Formal processes for managing scope modifications
+- **Quality Gates**: Defined criteria for phase completion and sign-off
+
+### Hybrid Methodology Selection
+- **Project Characteristics Assessment**: Evaluate complexity, uncertainty, and stakeholder preferences
+- **Adaptive Framework Design**: Combine elements from multiple methodologies as appropriate
+- **Methodology Rationale**: Explain chosen approach and its benefits for the specific project context
+
+## Risk Management Integration
+
+### Risk Identification Categories
+- **Technical Risks**: Technology limitations, integration challenges, skill gaps
+- **Schedule Risks**: Dependencies, resource availability, scope creep
+- **Business Risks**: Market changes, stakeholder alignment, budget constraints
+- **External Risks**: Regulatory changes, vendor reliability, competitive factors
+
+### Risk Response Strategies
+- **Avoid**: Eliminate risk through scope or approach changes
+- **Mitigate**: Reduce probability or impact through preventive actions
+- **Transfer**: Shift risk to vendors, insurance, or other parties
+- **Accept**: Acknowledge risk and plan contingency responses
+
+## Communication and Collaboration Framework
+
+### Stakeholder Engagement Principles
+- **Transparency**: Provide honest, timely updates on progress and challenges
+- **Inclusivity**: Engage relevant parties in planning and decision-making
+- **Clarity**: Use clear, jargon-free language appropriate to audience
+- **Responsiveness**: Address concerns and feedback promptly and thoroughly
+
+### Documentation Standards
+- **Version Control**: Maintain clear document versioning and change tracking
+- **Accessibility**: Ensure plans are understandable and usable by intended audiences
+- **Currency**: Keep documentation updated as project evolves
+- **Traceability**: Link tasks and decisions back to objectives and requirements
+
+## Iterative Planning Process
+
+### Continuous Improvement Framework
+- **Regular Review Cycles**: Schedule periodic plan assessment and refinement
+- **Feedback Integration**: Incorporate stakeholder input and lessons learned
+- **Adaptive Adjustments**: Modify approach based on changing conditions and new information
+- **Knowledge Capture**: Document insights and best practices for future projects
+
+### Clarification and Refinement Process
+- **Missing Information Identification**: Flag gaps that need stakeholder input
+- **Assumption Documentation**: Make planning assumptions explicit and validate with stakeholders
+- **Scenario Planning**: Consider multiple potential futures and their planning implications
+- **Option Analysis**: Present alternative approaches with trade-offs when multiple paths exist
+
+## Context-Specific Adaptations
+
+### Project Size and Complexity Scaling
+- **Small Projects**: Streamlined templates focused on key deliverables and timeline
+- **Medium Projects**: Balanced detail with formal processes and stakeholder management
+- **Large Projects**: Comprehensive planning with multiple workstreams and governance structures
+- **Program Management**: Coordination across multiple related projects with shared objectives
+
+### Industry and Domain Considerations
+- **Technology Projects**: Emphasis on technical architecture, development methodologies, and testing
+- **Business Transformation**: Change management, training, and organizational readiness
+- **Regulatory Compliance**: Documentation requirements, approval processes, and audit trails
+- **Creative Projects**: Iterative feedback cycles, creative reviews, and flexible timelines
+
+## Communication Style Guidelines
+
+### Professional Tone
+- Use confident, authoritative language that reflects project management expertise
+- Balance optimism about project success with realistic assessment of challenges
+- Provide clear recommendations while acknowledging when stakeholder input is needed
+- Maintain neutral, objective perspective when presenting options or trade-offs
+
+### Actionable Output
+- Include specific next steps and ownership assignments
+- Provide templates and tools that teams can immediately implement
+- Structure information for easy reference and updates during project execution
+- Link planning elements to execution activities and success metrics
+
+### Collaborative Approach
+- Frame plans as starting points for stakeholder discussion and refinement
+- Encourage feedback and iteration rather than presenting final solutions
+- Acknowledge when additional information or decisions are needed
+- Support team buy-in through inclusive planning processes
+
+Remember: Your goal is to create plans that bridge the gap between strategic vision and tactical execution, enabling teams to deliver successful outcomes while adapting to changing conditions and stakeholder needs.
+"""
+
+
+def error_exit(message: str, exit_code: int = 1) -> None:
+    """Print error message to stderr and exit with specified code."""
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(exit_code)
+
+
+def print_usage_and_exit() -> None:
+    """Print comprehensive usage message with providers/models and exit."""
+    print(
+        """tech16-planner - Planning assistant for analyzing documents and web content
+
+USAGE:
+  tech16-planner --model MODEL_NAME [FILES_AND_URLS...]
+
+ARGUMENTS:
+  --model MODEL_NAME   Model to use (required, must be first argument)
+  FILES_AND_URLS       Any number of files and URLs to analyze
+
+EXAMPLES:
+  tech16-planner --model claude-sonnet-4 project-docs.md
+  tech16-planner --model o4-mini file1.txt file2.py https://example.com/docs
+  tech16-planner --model gemini-2.5-pro requirements.txt https://docs.api.com
+
+SUPPORTED PROVIDERS AND MODELS:"""
+    )
+
+    for provider, models in sorted(SUPPORTED_MODELS.items()):
+        print(f"\n  {provider.upper()}:")
+        for model in sorted(models):
+            print(f"    - {model}")
+
+    print(
+        f"\nTotal models available: {sum(len(models) for models in SUPPORTED_MODELS.values())}"
+    )
+    print("\nNOTE: Requires appropriate API keys set as environment variables:")
+    print("  - ANTHROPIC_API_KEY for Anthropic models")
+    print("  - OPENAI_API_KEY for OpenAI models")
+    print("  - GOOGLE_API_KEY for Gemini models")
+
+    sys.exit(0)
+
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments with required --model first."""
+    if len(sys.argv) < 3 or sys.argv[1] != "--model":
+        print_usage_and_exit()
+
+    parser = argparse.ArgumentParser(
+        description="tech16-planner - Planning assistant for analyzing documents and web content",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  tech16-planner --model claude-sonnet-4 project-docs.md
+  tech16-planner --model o4-mini file1.txt file2.py https://example.com/docs
+  tech16-planner --model gemini-2.5-pro requirements.txt https://docs.api.com
+        """,
+    )
+
+    # Model specification - required and must be first
+    parser.add_argument(
+        "--model", required=True, help="Model to use (required, must be first argument)"
+    )
+
+    # Files and URLs
+    parser.add_argument("inputs", nargs="*", help="Files and URLs to analyze")
+
+    return parser.parse_args()
+
+
+def categorize_inputs(inputs: List[str]) -> Tuple[List[str], List[str]]:
+    """
+    Categorize input arguments into files and URLs.
+
+    Args:
+        inputs: List of input arguments (mix of files and URLs)
+
+    Returns:
+        Tuple[List[str], List[str]]: (files, urls)
+    """
+    files = []
+    urls = []
+
+    for item in inputs:
+        if is_valid_url(item):
+            urls.append(item)
+        else:
+            files.append(item)
+
+    return files, urls
+
+
+def process_files(files: List[str]) -> List[str]:
+    """
+    Process file inputs and return their content.
+
+    Args:
+        files: List of file paths
+
+    Returns:
+        List[str]: List of file contents or error messages
+    """
+    if not files:
+        return []
+
+    print(f"Processing {len(files)} file(s)...", file=sys.stderr)
+
+    content_list = []
+    for filepath in files:
+        content = read_file_content(filepath)
+        content_list.append(content)
+
+    return content_list
+
+
+def process_urls(urls: List[str]) -> List[str]:
+    """
+    Process URL inputs and return their scraped content.
+
+    Args:
+        urls: List of URLs to scrape
+
+    Returns:
+        List[str]: List of scraped contents or error messages
+    """
+    if not urls:
+        return []
+
+    print(f"Processing {len(urls)} URL(s)...", file=sys.stderr)
+
+    content_list = []
+    for url in urls:
+        print(f"Scraping URL: {url}", file=sys.stderr)
+        content = scrape_url_content(url)
+        content_list.append(content)
+
+    return content_list
+
+
+def build_context(file_contents: List[str], url_contents: List[str]) -> str:
+    """
+    Build the complete context by combining system prompt with all input content.
+
+    Args:
+        file_contents: List of file contents
+        url_contents: List of URL contents
+
+    Returns:
+        str: Complete context for LLM
+    """
+    context_parts = [SYSTEM_PROMPT]
+
+    if file_contents or url_contents:
+        context_parts.append("\n=== INPUT SOURCES ===\n")
+
+        # Add file contents
+        for content in file_contents:
+            context_parts.append(content)
+            context_parts.append("\n")
+
+        # Add URL contents
+        for content in url_contents:
+            context_parts.append(content)
+            context_parts.append("\n")
+
+    return "\n".join(context_parts)
+
+
+def create_client(model: str):
+    """Create appropriate client instance for the given model."""
+    try:
+        provider = get_provider_for_model(model)
+    except ModelNotFoundError as e:
+        error_exit(str(e))
+
+    try:
+        if provider == "anthropic":
+            return AnthropicClient()
+        elif provider == "openai":
+            return OpenAIClient()
+        elif provider == "gemini":
+            return GeminiClient()
+        else:
+            error_exit(f"Unknown provider: {provider}")
+    except APIKeyMissingError as e:
+        error_exit(str(e))
+    except Exception as e:
+        error_exit(f"Failed to create client for provider '{provider}': {e}")
+
+
+def main():
+    """Main entry point for the CLI tool."""
+    try:
+        # Parse command line arguments
+        args = parse_arguments()
+
+        # Check if we have any input sources
+        if not args.inputs:
+            error_exit(
+                "No input sources provided. Please specify files and/or URLs to analyze."
+            )
+
+        # Categorize inputs into files and URLs
+        files, urls = categorize_inputs(args.inputs)
+
+        # Validate inputs early
+        if files:
+            file_errors = validate_file_paths(files)
+            if file_errors:
+                for error in file_errors:
+                    print(f"Error: {error}", file=sys.stderr)
+                error_exit("File validation failed")
+
+        if urls:
+            url_errors = validate_urls(urls)
+            if url_errors:
+                for error in url_errors:
+                    print(f"Error: {error}", file=sys.stderr)
+                error_exit("URL validation failed")
+
+        # Process files and URLs
+        file_contents = process_files(files)
+        url_contents = process_urls(urls)
+
+        # Build complete context
+        context = build_context(file_contents, url_contents)
+
+        # Create appropriate client
+        client = create_client(args.model)
+
+        # Execute query
+        print(f"Querying {args.model}...", file=sys.stderr)
+        try:
+            response = client.query(args.model, [context])
+            print(response)
+        except Exception as e:
+            error_exit(f"Query failed: {e}")
+
+    except KeyboardInterrupt:
+        error_exit("Operation cancelled by user", 130)
+    except Exception as e:
+        error_exit(f"Unexpected error: {e}")
+
+
+if __name__ == "__main__":
+    main()
