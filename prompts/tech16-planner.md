@@ -6,4 +6,6 @@ The program will have a built in system prompt, stored in a string. For now just
 The system prompt and the input files and urls are combined into the context submitted to the LLM.
 The output is printed on STDOUT.
 
+If any of these requirements is not feasible or has conflicts, let me know before you generate the plan and I will fix it.
+
 use this description to create a comprehensive implementation plan. do not create any code yet, just the plan.

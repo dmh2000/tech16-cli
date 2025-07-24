@@ -1,0 +1,330 @@
+#!/usr/bin/env python3
+"""tech16-coder - Code generation CLI tool for analyzing documents and web content."""
+
+import argparse
+import sys
+import os
+from typing import List, Tuple
+from pathlib import Path
+
+# Add the lib directory to the Python path to import our client library
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
+
+from client.config import get_provider_for_model, SUPPORTED_MODELS
+from client.exceptions import ModelNotFoundError, APIKeyMissingError
+from client.anthropic_client import AnthropicClient
+from client.openai_client import OpenAIClient
+from client.gemini_client import GeminiClient
+
+# Add the tech16-cli directory to import handler modules
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "tech16-cli"))
+from file_handler import read_file_content, validate_file_paths
+from url_handler import scrape_url_content, validate_urls, is_valid_url
+
+# Import our file writer module
+from file_writer import parse_llm_output, write_generated_files, print_non_file_text
+
+# Built-in system prompt for code generation
+SYSTEM_PROMPT = """
+# System Prompt for Code Generation Assistant
+
+You are an expert software engineer specializing in generating high-quality, production-ready code. Your role is to analyze requirements and create clean, well-structured code files that follow industry best practices.
+
+## Output Format Requirements
+
+When generating code files, you MUST use the following format:
+
+```filepath/filename.ext
+[file content here]
+```
+
+- Use triple backticks to delimit each file
+- Include the full relative filepath on the same line as opening backticks
+- Preserve all code formatting and indentation
+- Generate multiple files as needed
+
+## Code Quality Standards
+
+- Write clean, readable, and maintainable code
+- Follow language-specific conventions and best practices
+- Include appropriate error handling
+- Add comments only where necessary for clarity
+- Ensure code is production-ready and follows security best practices
+
+## Analysis and Explanation
+
+- Provide clear explanations of your design decisions
+- Explain the purpose and functionality of generated code
+- Highlight important implementation details
+- Suggest usage patterns and best practices
+
+Remember: Any explanatory text you provide outside of the file blocks will be displayed to the user, so make it helpful and informative.
+"""
+
+
+def error_exit(message: str, exit_code: int = 1) -> None:
+    """Print error message to stderr and exit with specified code."""
+    print(f"Error: {message}", file=sys.stderr)
+    sys.exit(exit_code)
+
+
+def print_usage_and_exit() -> None:
+    """Print comprehensive usage message with providers/models and exit."""
+    print(
+        """tech16-coder - Code generation assistant for analyzing documents and web content
+
+USAGE:
+  tech16-coder --model MODEL_NAME [FILES_AND_URLS...]
+
+ARGUMENTS:
+  --model MODEL_NAME   Model to use (required, must be first argument)
+  FILES_AND_URLS       Any number of files and URLs to analyze
+
+EXAMPLES:
+  tech16-coder --model claude-sonnet-4 requirements.md
+  tech16-coder --model o4-mini file1.txt file2.py https://example.com/docs
+  tech16-coder --model gemini-2.5-pro spec.txt https://docs.api.com
+
+SUPPORTED PROVIDERS AND MODELS:"""
+    )
+
+    for provider, models in sorted(SUPPORTED_MODELS.items()):
+        print(f"\n  {provider.upper()}:")
+        for model in sorted(models):
+            print(f"    - {model}")
+
+    print(
+        f"\nTotal models available: {sum(len(models) for models in SUPPORTED_MODELS.values())}"
+    )
+    print("\nNOTE: Requires appropriate API keys set as environment variables:")
+    print("  - ANTHROPIC_API_KEY for Anthropic models")
+    print("  - OPENAI_API_KEY for OpenAI models")
+    print("  - GOOGLE_API_KEY for Gemini models")
+
+    sys.exit(0)
+
+
+def parse_arguments() -> argparse.Namespace:
+    """Parse command line arguments with required --model first."""
+    if len(sys.argv) < 3 or sys.argv[1] != "--model":
+        print_usage_and_exit()
+
+    parser = argparse.ArgumentParser(
+        description="tech16-coder - Code generation assistant for analyzing documents and web content",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  tech16-coder --model claude-sonnet-4 requirements.md
+  tech16-coder --model o4-mini file1.txt file2.py https://example.com/docs
+  tech16-coder --model gemini-2.5-pro spec.txt https://docs.api.com
+        """,
+    )
+
+    # Model specification - required and must be first
+    parser.add_argument(
+        "--model", required=True, help="Model to use (required, must be first argument)"
+    )
+
+    # Files and URLs
+    parser.add_argument("inputs", nargs="*", help="Files and URLs to analyze")
+
+    return parser.parse_args()
+
+
+def categorize_inputs(inputs: List[str]) -> Tuple[List[str], List[str]]:
+    """
+    Categorize input arguments into files and URLs.
+
+    Args:
+        inputs: List of input arguments (mix of files and URLs)
+
+    Returns:
+        Tuple[List[str], List[str]]: (files, urls)
+    """
+    files = []
+    urls = []
+
+    for item in inputs:
+        if is_valid_url(item):
+            urls.append(item)
+        else:
+            files.append(item)
+
+    return files, urls
+
+
+def process_files(files: List[str]) -> List[str]:
+    """
+    Process file inputs and return their content.
+
+    Args:
+        files: List of file paths
+
+    Returns:
+        List[str]: List of file contents or error messages
+    """
+    if not files:
+        return []
+
+    print(f"Processing {len(files)} file(s)...", file=sys.stderr)
+
+    content_list = []
+    for filepath in files:
+        content = read_file_content(filepath)
+        content_list.append(content)
+
+    return content_list
+
+
+def process_urls(urls: List[str]) -> List[str]:
+    """
+    Process URL inputs and return their scraped content.
+
+    Args:
+        urls: List of URLs to scrape
+
+    Returns:
+        List[str]: List of scraped contents or error messages
+    """
+    if not urls:
+        return []
+
+    print(f"Processing {len(urls)} URL(s)...", file=sys.stderr)
+
+    content_list = []
+    for url in urls:
+        print(f"Scraping URL: {url}", file=sys.stderr)
+        content = scrape_url_content(url)
+        content_list.append(content)
+
+    return content_list
+
+
+def build_context(file_contents: List[str], url_contents: List[str]) -> str:
+    """
+    Build the complete context by combining system prompt with all input content.
+
+    Args:
+        file_contents: List of file contents
+        url_contents: List of URL contents
+
+    Returns:
+        str: Complete context for LLM
+    """
+    context_parts = [SYSTEM_PROMPT]
+
+    if file_contents or url_contents:
+        context_parts.append("\n=== INPUT SOURCES ===\n")
+
+        # Add file contents
+        for content in file_contents:
+            context_parts.append(content)
+            context_parts.append("\n")
+
+        # Add URL contents
+        for content in url_contents:
+            context_parts.append(content)
+            context_parts.append("\n")
+
+    return "\n".join(context_parts)
+
+
+def create_client(model: str):
+    """Create appropriate client instance for the given model."""
+    try:
+        provider = get_provider_for_model(model)
+    except ModelNotFoundError as e:
+        error_exit(str(e))
+
+    try:
+        if provider == "anthropic":
+            return AnthropicClient()
+        elif provider == "openai":
+            return OpenAIClient()
+        elif provider == "gemini":
+            return GeminiClient()
+        else:
+            error_exit(f"Unknown provider: {provider}")
+    except APIKeyMissingError as e:
+        error_exit(str(e))
+    except Exception as e:
+        error_exit(f"Failed to create client for provider '{provider}': {e}")
+
+
+def main():
+    """Main entry point for the CLI tool."""
+    try:
+        # Parse command line arguments
+        args = parse_arguments()
+
+        # Check if we have any input sources
+        if not args.inputs:
+            error_exit(
+                "No input sources provided. Please specify files and/or URLs to analyze."
+            )
+
+        # Categorize inputs into files and URLs
+        files, urls = categorize_inputs(args.inputs)
+
+        # Validate inputs early
+        if files:
+            file_errors = validate_file_paths(files)
+            if file_errors:
+                for error in file_errors:
+                    print(f"Error: {error}", file=sys.stderr)
+                error_exit("File validation failed")
+
+        if urls:
+            url_errors = validate_urls(urls)
+            if url_errors:
+                for error in url_errors:
+                    print(f"Error: {error}", file=sys.stderr)
+                error_exit("URL validation failed")
+
+        # Process files and URLs
+        file_contents = process_files(files)
+        url_contents = process_urls(urls)
+
+        # Build complete context
+        context = build_context(file_contents, url_contents)
+
+        # Create appropriate client
+        client = create_client(args.model)
+
+        # Execute query
+        print(f"Querying {args.model}...", file=sys.stderr)
+        try:
+            response = client.query(args.model, [context])
+            
+            # Parse LLM output for files and explanatory text
+            file_specs, non_file_text = parse_llm_output(response)
+            
+            # Print explanatory text to stdout
+            print_non_file_text(non_file_text)
+            
+            # Write generated files
+            if file_specs:
+                print(f"\nWriting {len(file_specs)} generated file(s)...", file=sys.stderr)
+                written_files = write_generated_files(file_specs)
+                
+                # Report written files to stderr
+                if written_files:
+                    print("\nGenerated files:", file=sys.stderr)
+                    for filepath in written_files:
+                        print(f"  - {filepath}", file=sys.stderr)
+                else:
+                    print("No files were successfully written.", file=sys.stderr)
+            else:
+                print("No code files found in response.", file=sys.stderr)
+                
+        except Exception as e:
+            error_exit(f"Query failed: {e}")
+
+    except KeyboardInterrupt:
+        error_exit("Operation cancelled by user", 130)
+    except Exception as e:
+        error_exit(f"Unexpected error: {e}")
+
+
+if __name__ == "__main__":
+    main()
