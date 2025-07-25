@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""tech16-planner - Planning assistant CLI tool for analyzing documents and web content."""
+"""tech16-planner - General purpose lanning assistant CLI tool."""
 
 import argparse
 import sys
@@ -11,13 +11,13 @@ from pathlib import Path
 # Add the lib directory to the Python path to import our client library
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 
-from client.client import create_client
 
-# from client.config import get_provider_for_model, SUPPORTED_MODELS
 # from client.exceptions import ModelNotFoundError, APIKeyMissingError, error_exit
 # from client.anthropic_client import AnthropicClient
 # from client.openai_client import OpenAIClient
 # from client.gemini_client import GeminiClient
+from client.client import create_client
+from client.config import SUPPORTED_MODELS
 from client.file_handler import read_file_content, validate_file_paths
 from client.url_handler import scrape_url_content, validate_urls, is_valid_url
 
@@ -27,7 +27,7 @@ from system import SYSTEM_PROMPT
 def print_usage_and_exit() -> None:
     """Print comprehensive usage message with providers/models and exit."""
     print(
-        """tech16-planner - Planning assistant for analyzing documents and web content
+        """tech16-planner - General purpose planning assistant CLI tool
 
 USAGE:
   tech16-planner --model MODEL_NAME [FILES_AND_URLS...]

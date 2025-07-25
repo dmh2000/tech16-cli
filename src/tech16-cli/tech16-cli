@@ -9,11 +9,7 @@ from typing import List, Optional
 # Add the lib directory to the Python path to import our client library
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 
-from client.config import get_provider_for_model, SUPPORTED_MODELS
-from client.exceptions import ModelNotFoundError, APIKeyMissingError
-from client.anthropic_client import AnthropicClient
-from client.openai_client import OpenAIClient
-from client.gemini_client import GeminiClient
+from client.config import SUPPORTED_MODELS
 from client.exceptions import error_exit
 from client.file_handler import read_file_content, validate_file_paths
 from client.url_handler import scrape_url_content, validate_urls, is_valid_url
@@ -28,7 +24,7 @@ USAGE:
   tech16-cli [OPTIONS] [FILES_AND_URLS...]
 
 OPTIONS:
-  --prompt FILENAME    File containing the prompt to use
+  --prompt FILENAME    File containing the system prompt to use (optional)
   --model MODEL_NAME   Model to use (default: o4-mini)
   --help               Show this help message
 
@@ -36,7 +32,7 @@ EXAMPLES:
   tech16-cli file.txt
   tech16-cli --model claude-sonnet-4 file.txt
   tech16-cli --prompt system.txt --model o4-mini https://example.com/docs
-  echo "analyze this" | tech16-cli --prompt review.txt
+  echo "analyze this" | tech16-cli --prompt review.txt hello.py
   tech16-cli --prompt plan.txt file1.py file2.py https://docs.example.com
 
 SUPPORTED PROVIDERS AND MODELS:"""
