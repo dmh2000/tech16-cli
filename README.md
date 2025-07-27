@@ -1,8 +1,43 @@
 # Tech16 Final Project
 
 - author : david howard
+- linkedin : https://www.linkedin.com/in/david-howard-95482a1/
+
+Because I am an old school terminal guy, I decided to cobble some command line AI tools for use in shell scripts. I initially started on a do-everything cli tool (see src/tech16-cli) but I decided to add a couple of special purpose cli tools that do one thing only:
+
+- src/tech-cli : tries to cover all bases
+- src/tech-planner : has a system prompt that configures it as a planning assistant. it can try to plan just about anything, such as a code project or a trip.
+- src/tech-coder : has a system prompt that configures it as a coding assistant.
+
+The intent is providing cli tools that could be combined in a shell script to create an 'agent'.
+
+<img src="o0hr3le7b6a71.png" width="240px"/>
 
 ## tech16-coder
+
+[tech16-coder](src/tech16-coder/) is reasonably easy to use. You specify a model (or accept the default of o4-mini) and a file containing a description of what you want, prompt plus (optional) files and urls as context, and it will attempt to write the requestd code. This app will write the file or files it generates based on the paths and filenames the LLM called for. It's not a smart agent like Claude, Cline, Cursor etc, so right now its best for simple requests, like "write me a single file python program that does X'.
+
+### System Prompt
+
+Uses a [system prompt for a coder](src/tech16-coder/system.py). This system prompt was created in steps:
+
+- asked Perplexity what a system prompt for a coder assistant should have
+- had anthropic claude generate the system prompt, following the recommendations from Perplexity
+- hard coded this prompt in the application
+
+### Implementation
+
+98% of the code in tech16-coder is generated using Claude Code and the claude-4-sonnet model. I didn't use Opus because its really expensive. The code was created step by step:
+
+1. I wrote a [rough description](prompts/tech16-coder.md) of what I wanted this app to do.
+2. Gave the description to Claude and asked it to create a [comprehensive implementation plan](prompts/tech16-coder-implementation.md).
+3. Gave that implementation plan to Claude and told it to implement the app.
+4. I tweaked some of the code by hand because sometimes its easier to do that than come up with a specific enought prompt.
+
+## Examples
+
+- src/tech16-coder/scripts
+  - list the examples
 
 ### Usage
 
@@ -45,6 +80,30 @@ NOTE: Requires appropriate API keys set as environment variables:
 ```
 
 ## tech16-planner
+
+[tech16-planner](src/tech16-planner/) is an assistant that will generate a plan for just about anything you ask for that could be planned. Again, pretty easy to use.
+
+### System Prompt
+
+Uses a [system prompt for a coder](src/tech16-planner/system.py). This system prompt was created in steps:
+
+- asked Perplexity what a system prompt for a planner assistant should have
+- had anthropic claude generate the system prompt, following the recommendations from Perplexity
+- hard coded this prompt in the application
+
+### Implementation
+
+98% of the code in tech16-coder is generated using Claude Code and the claude-4-sonnet model. I didn't use Opus because its really expensive. The code was created step by step:
+
+1. I wrote a [rough description](prompts/tech16-planner.md) of what I wanted this app to do.
+2. Gave the description to Claude and asked it to create a [comprehensive implementation plan](prompts/tech16-planner-implementation.md).
+3. Gave that implementation plan to Claude and told it to implement the app.
+4. I tweaked some of the code by hand because sometimes its easier to do that than come up with a specific enought prompt.
+
+## Examples
+
+- src/tech16-planner/scripts
+  - hello.sh :
 
 ### Usage
 
@@ -101,6 +160,7 @@ tech16-cli [OPTIONS] [FILES_AND_URLS...]
 
 OPTIONS:
 --prompt FILENAME File containing the prompt to use
+
 --model MODEL_NAME Model to use (default: o4-mini)
 --help Show this help message
 

@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 # from client.openai_client import OpenAIClient
 # from client.gemini_client import GeminiClient
 from client.client import create_client
+from client.client import create_client
 from client.config import SUPPORTED_MODELS
 from client.file_handler import read_file_content, validate_file_paths
 from client.url_handler import scrape_url_content, validate_urls, is_valid_url

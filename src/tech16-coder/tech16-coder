@@ -16,6 +16,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 # from client.openai_client import OpenAIClient
 # from client.gemini_client import GeminiClient
 # from client.exceptions import ModelNotFoundError, APIKeyMissingError
+from client.client import create_client
 from client.config import SUPPORTED_MODELS
 from client.exceptions import error_exit
 from client.file_handler import read_file_content, validate_file_paths
@@ -228,7 +229,7 @@ def main():
         context = build_context(file_contents, url_contents)
 
         # Create appropriate client
-        client = client.create_client(args.model)
+        client = create_client(args.model)
 
         # Execute query
         print(f"Querying {args.model}...", file=sys.stderr)
@@ -240,6 +241,9 @@ def main():
 
             # Print explanatory text to stdout
             print_non_file_text(non_file_text)
+
+            # print current working directory
+            print(os.getcwd())
 
             # Write generated files
             if file_specs:
