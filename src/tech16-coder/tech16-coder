@@ -242,9 +242,6 @@ def main():
             # Print explanatory text to stdout
             print_non_file_text(non_file_text)
 
-            # print current working directory
-            print(os.getcwd())
-
             # Write generated files
             if file_specs:
                 print(
