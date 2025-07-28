@@ -50,9 +50,17 @@ class AnthropicClient(Client):
             # Format messages for Anthropic API
             messages = self._format_messages(context)
 
+            # Set max_tokens based on model type
+            if "sonnet" in model.lower():
+                max_tokens = 1048576
+            elif "haiku" in model.lower():
+                max_tokens = 8192
+            else:
+                max_tokens = 4096
+
             # Make the API call
             response = self.client.messages.create(
-                model=model, max_tokens=4096, messages=messages
+                model=model, max_tokens=max_tokens, messages=messages
             )
 
             # Extract and clean the response text

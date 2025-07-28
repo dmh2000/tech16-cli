@@ -10,3 +10,14 @@ The output of the llm will be one of more files delimited by triple backticks, a
 If any of these requirements is not feasible or has conflicts, let me know before you generate the plan and I will fix it.
 
 use this description to create a comprehensive implementation plan. do not create any code yet, just the plan. output the plan to file "tech16-coder-implementation.md"
+
+---
+
+in 'src/tech16-coder/tech16-coder', create a logger object using the built in python
+logging module. the logger will used to write the contents of the response from the
+client.query function.
+
+---
+
+I had to increase the limits on max output tokens for all models because the defaults the
+llm built the first time were too small

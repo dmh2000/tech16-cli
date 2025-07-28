@@ -52,6 +52,7 @@ def parse_llm_output(response: str) -> Tuple[List[FileSpec], str]:
 def write_generated_files(file_specs: List[FileSpec]) -> List[str]:
     """
     Write generated files to filesystem with collision avoidance.
+    Only writes files within the current working directory for security.
     
     Args:
         file_specs: List of file specifications to write
@@ -60,11 +61,22 @@ def write_generated_files(file_specs: List[FileSpec]) -> List[str]:
         List[str]: List of actual filepaths written (may differ from requested due to collisions)
     """
     written_files = []
+    cwd = Path.cwd()
     
     for file_spec in file_specs:
         try:
+            # Validate that the file path is within current working directory
+            if not _is_within_cwd(file_spec.filepath, cwd):
+                print(f"Warning: Skipping file outside current working directory: {file_spec.filepath}", file=sys.stderr)
+                continue
+            
             # Generate safe filename to avoid collisions
             safe_filepath = generate_safe_filename(file_spec.filepath)
+            
+            # Double-check that the safe filepath is still within CWD
+            if not _is_within_cwd(safe_filepath, cwd):
+                print(f"Warning: Skipping file outside current working directory after collision avoidance: {safe_filepath}", file=sys.stderr)
+                continue
             
             # Create parent directories if they don't exist
             parent_dir = Path(safe_filepath).parent
@@ -162,7 +174,33 @@ def _is_safe_filepath(filepath: str) -> bool:
         if path_obj.name.startswith('.') and not any(path_obj.name.endswith(ext) for ext in ['.py', '.js', '.ts', '.json', '.md', '.txt']):
             return False
             
+        # Check if path is within current working directory
+        if not _is_within_cwd(filepath, Path.cwd()):
+            return False
+            
         return True
+        
+    except (ValueError, OSError):
+        return False
+
+
+def _is_within_cwd(filepath: str, cwd: Path) -> bool:
+    """
+    Check if a filepath resolves to a location within the current working directory.
+    
+    Args:
+        filepath: Filepath to check
+        cwd: Current working directory Path object
+        
+    Returns:
+        bool: True if filepath is within the current working directory
+    """
+    try:
+        # Resolve the filepath to an absolute path
+        resolved_path = (cwd / filepath).resolve()
+        
+        # Check if the resolved path is within the current working directory
+        return cwd.resolve() in resolved_path.parents or resolved_path == cwd.resolve()
         
     except (ValueError, OSError):
         return False

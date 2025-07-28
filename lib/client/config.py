@@ -14,7 +14,6 @@ SUPPORTED_MODELS = {
     "openai": {
         "o4-mini",
         "o3-mini",
-        "gpt-4o-mini",
     },
     "gemini": {
         "gemini-2.5-pro",

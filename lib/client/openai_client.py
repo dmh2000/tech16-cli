@@ -53,9 +53,9 @@ class OpenAIClient(Client):
             
             # Newer models use max_completion_tokens, older models use max_tokens
             if model.startswith(('o1-', 'o3-', 'o4-')):
-                completion_params["max_completion_tokens"] = 4096
+                completion_params["max_completion_tokens"] = 100000
             else:
-                completion_params["max_tokens"] = 4096
+                completion_params["max_tokens"] = 100000
             
             response = self.client.chat.completions.create(**completion_params)
             

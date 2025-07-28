@@ -50,8 +50,8 @@ class GeminiClient(Client):
             
             # Configure generation parameters
             generation_config = self.genai.GenerationConfig(
-                max_output_tokens=4096,
-                temperature=0.7,
+                max_output_tokens=65535,
+                temperature=0.5,
                 top_p=0.95,
                 top_k=64,
             )
