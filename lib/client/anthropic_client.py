@@ -52,19 +52,28 @@ class AnthropicClient(Client):
 
             # Set max_tokens based on model type
             if "sonnet" in model.lower():
-                max_tokens = 1048576
+                max_tokens = 64000
             elif "haiku" in model.lower():
                 max_tokens = 8192
             else:
                 max_tokens = 4096
 
-            # Make the API call
-            response = self.client.messages.create(
-                model=model, max_tokens=max_tokens, messages=messages
-            )
+            # Use streaming for large max_tokens to avoid timeout issues
+            if max_tokens > 10000:
+                # Make the API call with streaming
+                response_text = ""
+                with self.client.messages.stream(
+                    model=model, max_tokens=max_tokens, messages=messages
+                ) as stream:
+                    for text in stream.text_stream:
+                        response_text += text
+            else:
+                # Make the regular API call for smaller responses
+                response = self.client.messages.create(
+                    model=model, max_tokens=max_tokens, messages=messages
+                )
+                response_text = response.content[0].text
 
-            # Extract and clean the response text
-            response_text = response.content[0].text
             return clean_response(response_text)
 
         except Exception as e:

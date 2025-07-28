@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# wipe the existing output in directory 'web'
+rm -rf web
+
 # create two temporary files
 WEB=$(mktemp)
 
@@ -25,7 +28,6 @@ if [ $? -ne 0 ]; then
     return $?
 fi
 rm $WEB 2>/dev/null   
-
 
 # ----------------------------
 # create the web server
