@@ -5,6 +5,7 @@ rm -rf web
 
 # create two temporary files
 WEB=$(mktemp)
+trap 'rm -f $WEB"' EXIT
 
 # ----------------------------
 # construct the web app 
@@ -20,7 +21,7 @@ echo "make the web page modern and colorful \
   " >$WEB
 
 # request claude sonnet to build the application
-../src/tech16-coder/tech16-coder --model claude-sonnet-4-20250514 $WEB
+../../src/tech16-coder/tech16-coder --model claude-sonnet-4-20250514 $WEB
 
 # quit on error
 if [ $? -ne 0 ]; then
@@ -33,6 +34,7 @@ rm $WEB 2>/dev/null
 # create the web server
 # ----------------------------
 SERVER=$(mktemp)
+trap 'rm -f $SERVER"' EXIT
 echo "create a simple python web server in 'web/server.py'. \
   this web server will serve index.html by default. \
   use standard python libraries only.
@@ -41,7 +43,7 @@ echo "create a simple python web server in 'web/server.py'. \
   " >$SERVER
 
 # request gemini flash to create the server
-../src/tech16-coder/tech16-coder --model gemini-2.5-flash $SERVER
+../../src/tech16-coder/tech16-coder --model gemini-2.5-flash $SERVER
 
 # quit on error
 if [ $? -ne 0 ]; then
