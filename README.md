@@ -44,6 +44,10 @@ To run the tools,
   - OPENAI_API_KEY for OpenAI models
   - GOOGLE_API_KEY for Gemini models
 
+### Claude
+
+I generated most of the code with Anthropic Claude Code using sonnet-4 and haiku. The tool I built support models from Anthropic, Gemini and OpenAI.
+
 ## tech16-coder
 
 [tech16-coder](src/tech16-coder/) is reasonably easy to use. You specify a model (required) and a file containing a prompt of what you want, plus (optional) files and urls as context, and it will attempt to write the requestd code. This app will write the file or files it generates based on the paths and filenames the LLM called for. It's not a smart agent like Claude, Cline, Cursor etc, so right now its best for simple requests, like "write me a single file python program that does X'.
