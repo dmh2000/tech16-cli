@@ -8,6 +8,8 @@
 
 Because I am an old school terminal guy, I decided to cobble some command line AI tools for use in shell scripts. I initially started on a do-everything cli tool (see src/tech16-cli) but I pivoted to add a couple of special purpose cli tools that do one thing only.
 
+P.S. I did not request a grade. The last time I was in university was 1981 so I don't need the credits.
+
 ## The Tools
 
 - **src/tech-planner**
@@ -54,9 +56,10 @@ I generated most of the code with Anthropic Claude Code using sonnet-4 and haiku
 
 ### Anomalies I ran into with code generation
 
+- I ran into some issues with max output token limit too small in some of my code generation. I fixed that for this project but I would probably go back and implement the LLM API to use LangChain because it supports chunking output to avoid the output limits.
 - I had to add "Do not output any explanations, descriptions or other non-code text. output the code files only." to the system prompt or the LLMs would create a lot of extraneous output.
 - I found that none of the LLMs would generate python web servers that included the proper CORS support unless I explicitly told them to. Without that pages with APIs wouldn't work.
-- I had to massage the coder system prompt to git it to create code files with the proper filename annotation. They were very stubborn.
+- I had to massage the coder system prompt to get it to create code files with the proper filename annotation. They were very stubborn.
 
 ### System Prompt
 
