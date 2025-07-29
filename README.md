@@ -2,10 +2,11 @@
 
 - author : david howard
 - linkedin : https://www.linkedin.com/in/david-howard-95482a1/
+- github : https://github.com/dmh2000/tech16-cli
 
 Because I am an old school terminal guy, I decided to cobble some command line AI tools for use in shell scripts. I initially started on a do-everything cli tool (see src/tech16-cli) but I decided to add a couple of special purpose cli tools that do one thing only:
 
-- src/tech-cli : tries to cover all bases
+- src/tech-cli : tries to cover all bases. not fully tested
 - src/tech-planner : has a system prompt that configures it as a planning assistant. it can try to plan just about anything, such as a code project or a trip.
 - src/tech-coder : has a system prompt that configures it as a coding assistant.
 
@@ -36,8 +37,20 @@ Uses a [system prompt for a coder](src/tech16-coder/system.py). This system prom
 
 ## Examples
 
-- src/tech16-coder/scripts
-  - list the examples
+Bash scripts that use tech16-coder
+
+examples
+├── coder-hello.sh
+├── coder.sh
+├── mlb (Major League Basball)
+│   ├── coder-mlb-api.sh
+│   ├── coder-mlb-csv.sh
+│   ├── coder-mlb-prompt.md
+│   ├── coder-mlb.sh
+│   ├── coder-mlb-web.sh
+│   ├── mlb
+└── web (simple web app)
+└── coder-web.sh
 
 ### Usage
 
@@ -102,8 +115,21 @@ Uses a [system prompt for a coder](src/tech16-planner/system.py). This system pr
 
 ## Examples
 
-- src/tech16-planner/scripts
-  - hello.sh :
+./examples
+├── all.sh
+├── hello.md
+├── hello-plan.md
+├── hello.sh
+├── output
+│   ├── hello-plan.md
+│   ├── space-plan.md
+│   └── trip-plan.md
+├── space.md
+├── space-plan.md
+├── space.sh
+├── trip.md
+├── trip-plan.md
+└── trip.sh
 
 ### Usage
 
