@@ -22,11 +22,12 @@ az,det,2,1,final
 
 ## API endpoint
 
-- create a web server with one API endpoint "http://localhost:8001/mlb.csv"
+- create a web server with one API endpoint 'http://localhost:8001/mlb.csv'
 - use the Python programming language
 - use the standard Python http functions
-- use a single file, "api/api.py for the application
-- the endpoint returns a copy of the "mlb.csv" file with the latest major league baseball schedule and status.
+- write the server python file to 'mlb/api.py'
+- a separate application will cretae a file in the mlb directory named mlb.csv
+- the endpoint returns a copy and existing 'mlb.csv' file in the same directory as the server, or a 404 error if the file doesnt exist
 
 ## Web Page
 

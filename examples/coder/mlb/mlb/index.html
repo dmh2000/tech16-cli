@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLB Game Tracker</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <header class="header">
+        <h1>MLB Game Tracker</h1>
+        <div class="refresh-indicator" id="refreshIndicator">
+            <span>Last updated: <span id="lastUpdated">Loading...</span></span>
+        </div>
+    </header>
+    
+    <main class="main-content">
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Loading MLB games...</p>
+        </div>
+        
+        <div class="games-container" id="gamesContainer">
+        </div>
+        
+        <div class="error-message" id="errorMessage" style="display: none;">
+            <h3>Unable to load game data</h3>
+            <p>Please check your connection and try again.</p>
+            <button onclick="fetchGames()" class="retry-button">Retry</button>
+        </div>
+    </main>
+    
+    <footer class="footer">
+        <p>&copy; 2024 MLB Game Tracker - Stay updated with live baseball scores</p>
+    </footer>
+    
+    <script src="index.js"></script>
+</body>
+</html>

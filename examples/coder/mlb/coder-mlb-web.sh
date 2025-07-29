@@ -15,6 +15,7 @@ echo "- this web application will show the status of major league baseball MLB g
 - on startup and every 30 seconds the web app will fetch a copy of the mlb csv file from the API endpoint 'http://localhost:8001/mlb.csv. \
 - the web app will fetch the mlb csv file using a GET request \
 - the web app will parse the mlb csv file data and display the status of each game in a separate 'card'. \
+- the web app should not use a Cache-Control header because it causes a CORS error \
 - each card will show the teams, scores and status from the mlb.csv file \
 - write html code to file 'mlb/index.html' \
 - write css code to file 'mlb/index.css' \

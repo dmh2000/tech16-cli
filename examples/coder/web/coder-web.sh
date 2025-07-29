@@ -5,7 +5,7 @@ rm -rf web
 
 # create two temporary files
 WEB=$(mktemp)
-trap 'rm -f $WEB"' EXIT
+trap 'rm -f "$WEB"' EXIT
 
 # ----------------------------
 # construct the web app 
@@ -34,7 +34,7 @@ rm $WEB 2>/dev/null
 # create the web server
 # ----------------------------
 SERVER=$(mktemp)
-trap 'rm -f $SERVER"' EXIT
+trap 'rm -f "$SERVER"' EXIT
 echo "create a simple python web server in 'web/server.py'. \
   this web server will serve index.html by default. \
   use standard python libraries only.

@@ -2,7 +2,7 @@
 
 # create two temporary files
 MLB=$(mktemp)
-trap 'rm -f $MLB"' EXIT
+trap 'rm -f "$MLB"' EXIT
 
 # ------------------------------------
 # scrape and process the mlb web page
@@ -20,7 +20,7 @@ the input data is today's major league baseball games.\
       -current inning if in progress \
       -"final" if game is over \
 \
-Here is an example, not real data \
+Here is an example of the output file, not real data \
 \
 visitor,home,visitor_score,home_score,status \
 TOR,BAL,0,0,6:35 PM ET \
@@ -29,6 +29,8 @@ AZ,DET,0,0,final \
 \
 write the file to 'mlb/mlb.csv \
 </prompt> \
+\
+do not output any description or examplation. output only the mlb/mlb.csv file. \
 " >$MLB
 
 # read the csv file (place the prompt last)
