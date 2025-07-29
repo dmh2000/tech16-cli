@@ -11,14 +11,9 @@ from pathlib import Path
 # Add the lib directory to the Python path to import our client library
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "lib"))
 
-
-# from client.exceptions import ModelNotFoundError, APIKeyMissingError, error_exit
-# from client.anthropic_client import AnthropicClient
-# from client.openai_client import OpenAIClient
-# from client.gemini_client import GeminiClient
-from client.client import create_client
 from client.client import create_client
 from client.config import SUPPORTED_MODELS
+from client.exceptions import error_exit
 from client.file_handler import read_file_content, validate_file_paths
 from client.url_handler import scrape_url_content, validate_urls, is_valid_url
 
