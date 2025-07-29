@@ -4,21 +4,31 @@
 - linkedin : https://www.linkedin.com/in/david-howard-95482a1/
 - github : https://github.com/dmh2000/tech16-cli
 
-Because I am an old school terminal guy, I decided to cobble some command line AI tools for use in shell scripts. I initially started on a do-everything cli tool (see src/tech16-cli) but I decided to add a couple of special purpose cli tools that do one thing only:
+<img src="o0hr3le7b6a71.png" width="240px"/>
+
+Because I am an old school terminal guy, I decided to cobble some command line AI tools for use in shell scripts. I initially started on a do-everything cli tool (see src/tech16-cli) but I pivoted to add a couple of special purpose cli tools that do one thing only.
+
+## The Tools
 
 - **src/tech-planner**
+  - a python cli tool to generate plans from a command line or script
   - has a system prompt that configures it as a planning assistant.
   - it will try to plan just about anything, such as a code project or a trip.
   - **see examples/planner**
 - **src/tech-coder**
+  - a python cli tool to generate code from command line or script
   - has a system prompt that configures it as a coding assistant.
   - it will try to generate code based on any prompt you give it
-  - **see example/coder**
+  - **see examples/coder**
 - src/tech-cli : tries to cover all bases. not fully tested.
 
 The intent is providing cli tools that could be combined in a shell script to create an 'agent'.
 
-<img src="o0hr3le7b6a71.png" width="240px"/>
+To run the tools,
+
+- run "pip -r requirements.txt" to get the dependencies
+- _src/tech16-coder/tech16-coder_
+- _src/tech16-planner/tech16-planner_
 
 - **To get the best view of how it all works, look in the shell scripts in 'examples' and the output of the examples**:
   - examples/coder/mlb (mlb project script)
@@ -134,6 +144,50 @@ NOTE: Requires appropriate API keys set as environment variables:
   - GOOGLE_API_KEY for Gemini models
 ```
 
+### Example Shell Script
+
+```bash
+#!/bin/sh
+
+# create two temporary files
+MLB=$(mktemp)
+trap 'rm -f "$MLB"' EXIT
+
+# ------------------------------------
+# scrape and process the mlb web page
+# one-shot with example
+# ------------------------------------
+echo "<prompt>\
+the input data is today's major league baseball games.\
+-from that data create a file "mlb/mlb.csv" that contains: \
+  -the visitor team abbreviation, \
+  -the home team abbreviation, \
+  -the current visitor score or 0 if not playing yet \
+  -the current home team score or 0 if not playing yet \
+  -an indicator of either: \
+      -game time if not started \
+      -current inning if in progress \
+      -"final" if game is over \
+\
+Here is an example of the output file, not real data \
+\
+visitor,home,visitor_score,home_score,status \
+TOR,BAL,0,0,6:35 PM ET \
+COL,CLE,0,0,7 \
+AZ,DET,0,0,final \
+\
+write the file to 'mlb/mlb.csv \
+</prompt> \
+\
+do not output any description or examplation. output only the mlb/mlb.csv file. \
+" >$MLB
+
+# generate the csv file from the prompt, mlb web site and LLM
+../../../src/tech16-coder/tech16-coder --model o4-mini https://mlb.com/schedule $MLB >mlb-csv.log
+
+
+```
+
 ## tech16-planner
 
 [tech16-planner](src/tech16-planner/) is an assistant that will generate a plan for just about anything you ask for that could be planned. Again, pretty easy to use.
@@ -218,11 +272,30 @@ NOTE: Requires appropriate API keys set as environment variables:
 
 ```
 
+### Example Prompt and Shell Script
+
+```markdown
+I want to generate a plan for a trip to visit interesting sights in our solar system.
+
+- This is science fiction, so you can create any technologies you need, but try to keep them at least marginally feasible. No teleportation.
+- Include stops at interesting features at each of the major planets of the solar system.
+- Assume the mode of travel has a speed of 1% of light speed
+- If you need any additional information before creating the plan, let me know and I
+  will modify this prompt.
+```
+
+```bash
+#!/bin/sh
+
+../../src/tech16-planner/tech16-planner --model o4-mini space.md >output/space-plan.md
+
+```
+
 ## tech16-cli
 
 This tool is a more general purpose tool that does not have a specific system prompt. It has an optional command line argument to specify a system prompt.
 
-Its not fully tested so you can try it if you like.
+Its a work in progress so you can try it if you like but no guarantees.
 
 ### Usage
 
